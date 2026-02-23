@@ -4,9 +4,16 @@ All configuration is read from environment variables (or .env file).
 Copy .env.example → .env and fill in your values.
 """
 
-from functools import lru_cache
-from typing import List
+"""
+core/config.py
+All configuration is read from environment variables (or .env file).
+Copy .env.example → .env and fill in your values.
+"""
 
+from functools import lru_cache
+from typing import Any, List
+
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -25,9 +32,9 @@ class Settings(BaseSettings):
 
     # ── CORS / Hosts ─────────────────────────────────────────────────────
     CORS_ORIGINS: List[str] = [
-        "http://localhost:5173",   # Vite dev server
+        "http://localhost:5173",
         "http://localhost:3000",
-        "http://localhost:4173",   # Vite preview
+        "http://localhost:4173",
     ]
     ALLOWED_HOSTS: List[str] = ["*"]
 
@@ -36,31 +43,48 @@ class Settings(BaseSettings):
 
     # ── Redis ─────────────────────────────────────────────────────────────
     REDIS_URL: str = "redis://localhost:6379/0"
-    CACHE_TTL_SECONDS: int = 86_400          # 24 h — identical conversions cached for a day
+    CACHE_TTL_SECONDS: int = 86_400
 
     # ── LLM / AI ─────────────────────────────────────────────────────────
-    GROQ_API_KEY: str = ""                   # used by the Node worker; get free key at console.groq.com
+    GROQ_API_KEY: str = ""
     LLM_MODEL: str = "llama-3.3-70b-versatile"
     LLM_MAX_TOKENS: int = 4096
-    LLM_TEMPERATURE: float = 0.1            # low temp → deterministic code output
+    LLM_TEMPERATURE: float = 0.1
 
     # ── Rate limiting ─────────────────────────────────────────────────────
-    RATE_LIMIT_PER_MINUTE: int = 20          # per IP
+    RATE_LIMIT_PER_MINUTE: int = 20
     RATE_LIMIT_PER_DAY: int = 200
 
     # ── Job queue ─────────────────────────────────────────────────────────
     JOB_TIMEOUT_SECONDS: int = 60
     JOB_POLL_INTERVAL_MS: int = 500
 
-    # ── Judge0 (sandboxed execution) ──────────────────────────────────────
+    # ── Judge0 ──────────────────────────────────────────────────────────
     JUDGE0_URL: str = "http://localhost:2358"
-    JUDGE0_AUTH_TOKEN: str = ""              # leave empty for local Judge0
+    JUDGE0_AUTH_TOKEN: str = ""
 
     # ── Supported languages ───────────────────────────────────────────────
     SUPPORTED_LANGUAGES: List[str] = [
         "JavaScript", "TypeScript", "Python", "Java",
         "C++", "C#", "Ruby", "Go", "PHP", "Swift", "Kotlin",
     ]
+
+    @field_validator("CORS_ORIGINS", "ALLOWED_HOSTS", "SUPPORTED_LANGUAGES", mode="before")
+    @classmethod
+    def parse_list(cls, v: Any) -> Any:
+        if isinstance(v, list):
+            return v
+        if isinstance(v, str):
+            v = v.strip()
+            if not v:
+                return []
+            # Try JSON array first
+            if v.startswith("["):
+                import json
+                return json.loads(v)
+            # Comma-separated or single value
+            return [item.strip().strip('"').strip("'") for item in v.split(",")]
+        return v
 
 
 @lru_cache
