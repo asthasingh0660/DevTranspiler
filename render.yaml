@@ -1,0 +1,82 @@
+services:
+  # ── FastAPI Backend ──────────────────────────────────────────────
+  - type: web
+    name: devtranspiler-backend
+    runtime: docker
+    dockerfilePath: ./devtranspiler/backend/Dockerfile
+    dockerContext: ./devtranspiler/backend
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: devtranspiler-db
+          property: connectionString
+      - key: REDIS_URL
+        fromService:
+          name: devtranspiler-redis
+          type: redis
+          property: connectionString
+      - key: PRODUCER_URL
+        value: https://devtranspiler-producer.onrender.com/enqueue
+      - key: GROQ_API_KEY
+        sync: false
+      - key: APP_ENV
+        value: production
+      - key: DEBUG
+        value: "false"
+      - key: SECRET_KEY
+        generateValue: true
+      - key: ALLOWED_HOSTS
+        value: '["*"]'
+      - key: CORS_ORIGINS
+        value: '["https://devtranspiler.vercel.app"]'
+      - key: JUDGE0_URL
+        value: http://localhost:2358
+      - key: JUDGE0_AUTH_TOKEN
+        value: ""
+
+  # ── Node Bull Producer ───────────────────────────────────────────
+  - type: web
+    name: devtranspiler-producer
+    runtime: node
+    rootDir: ./devtranspiler/producer
+    buildCommand: npm install
+    startCommand: node index.js
+    envVars:
+      - key: REDIS_URL
+        fromService:
+          name: devtranspiler-redis
+          type: redis
+          property: connectionString
+      - key: PORT
+        value: "3001"
+
+  # ── Node Bull Worker ─────────────────────────────────────────────
+  - type: worker
+    name: devtranspiler-worker
+    runtime: node
+    rootDir: ./devtranspiler/worker
+    buildCommand: npm install
+    startCommand: node index.js
+    envVars:
+      - key: REDIS_URL
+        fromService:
+          name: devtranspiler-redis
+          type: redis
+          property: connectionString
+      - key: GROQ_API_KEY
+        sync: false
+      - key: LLM_MODEL
+        value: llama-3.3-70b-versatile
+      - key: LLM_MAX_TOKENS
+        value: "4096"
+      - key: WORKER_CONCURRENCY
+        value: "3"
+
+databases:
+  - name: devtranspiler-db
+    databaseName: devtranspiler
+    user: devuser
+    plan: free
+
+  - name: devtranspiler-redis
+    plan: free

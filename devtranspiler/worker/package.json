@@ -1,0 +1,17 @@
+{
+  "name": "devtranspiler-worker",
+  "version": "1.0.0",
+  "description": "Bull/Redis job worker for DevTranspiler AI conversion jobs",
+  "type": "module",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "node --watch index.js"
+  },
+  "dependencies": {
+    "bull": "^4.16.5",
+    "dotenv": "^16.5.0",
+    "groq-sdk": "^0.9.1",
+    "ioredis": "^5.6.0"
+  }
+}

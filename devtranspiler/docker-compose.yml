@@ -1,0 +1,142 @@
+###############################################################################
+# DevTranspiler — docker-compose.yml
+#
+# Normal dev:
+#   docker compose up --build
+#
+# With Judge0 sandboxed execution (Phase 4):
+#   docker compose --profile judge up --build
+###############################################################################
+
+services:
+
+  redis:
+    image: redis:7-alpine
+    container_name: dt_redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: dt_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: devuser
+      POSTGRES_PASSWORD: devpass
+      POSTGRES_DB: devtranspiler
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U devuser -d devtranspiler"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: dt_backend
+    restart: unless-stopped
+    env_file: ./backend/.env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://devuser:devpass@postgres:5432/devtranspiler
+      REDIS_URL: redis://redis:6379/0
+      PRODUCER_URL: http://producer:3001/enqueue
+      JUDGE0_URL: http://judge0:2358
+    ports:
+      - "8000:8000"
+    depends_on:
+      redis:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  worker:
+    build:
+      context: ./worker
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    env_file: ./worker/.env
+    environment:
+      REDIS_URL: redis://redis:6379/0
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  producer:
+    build: ./producer
+    container_name: dt_producer
+    restart: unless-stopped
+    environment:
+      REDIS_URL: redis://redis:6379
+    ports:
+      - "3001:3001"
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: dt_frontend
+    restart: unless-stopped
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+
+  # ── Judge0 — only starts with: docker compose --profile judge up ────────────
+  judge0:
+    profiles: ["judge"]
+    image: judge0/judge0:1.13.1
+    container_name: dt_judge0
+    restart: unless-stopped
+    ports:
+      - "2358:2358"
+    volumes:
+      - ./judge0.conf:/judge0.conf
+    privileged: true
+    depends_on:
+      - judge0_db
+      - judge0_redis
+
+  judge0_db:
+    profiles: ["judge"]
+    image: postgres:13
+    container_name: dt_judge0_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: judge0
+      POSTGRES_PASSWORD: judge0pass
+      POSTGRES_DB: judge0
+    volumes:
+      - judge0_db_data:/var/lib/postgresql/data
+
+  judge0_redis:
+    profiles: ["judge"]
+    image: redis:6
+    container_name: dt_judge0_redis
+    restart: unless-stopped
+
+volumes:
+  redis_data:
+  postgres_data:
+  judge0_db_data:
