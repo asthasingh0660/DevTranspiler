@@ -11,10 +11,7 @@ services:
           name: devtranspiler-db
           property: connectionString
       - key: REDIS_URL
-        fromService:
-          name: devtranspiler-redis
-          type: redis
-          property: connectionString
+        sync: false
       - key: PRODUCER_URL
         value: https://devtranspiler-producer.onrender.com/enqueue
       - key: GROQ_API_KEY
@@ -28,7 +25,7 @@ services:
       - key: ALLOWED_HOSTS
         value: '["*"]'
       - key: CORS_ORIGINS
-        value: '["https://devtranspiler.vercel.app"]'
+        value: '["https://dev-transpiler.vercel.app"]'
       - key: JUDGE0_URL
         value: http://localhost:2358
       - key: JUDGE0_AUTH_TOKEN
@@ -43,10 +40,7 @@ services:
     startCommand: node index.js
     envVars:
       - key: REDIS_URL
-        fromService:
-          name: devtranspiler-redis
-          type: redis
-          property: connectionString
+        sync: false
       - key: PORT
         value: "3001"
 
@@ -59,10 +53,7 @@ services:
     startCommand: node index.js
     envVars:
       - key: REDIS_URL
-        fromService:
-          name: devtranspiler-redis
-          type: redis
-          property: connectionString
+        sync: false
       - key: GROQ_API_KEY
         sync: false
       - key: LLM_MODEL
@@ -76,7 +67,4 @@ databases:
   - name: devtranspiler-db
     databaseName: devtranspiler
     user: devuser
-    plan: free
-
-  - name: devtranspiler-redis
     plan: free
