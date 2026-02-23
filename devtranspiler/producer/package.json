@@ -2,6 +2,9 @@
   "name": "dt-producer",
   "version": "1.0.0",
   "type": "module",
+  "scripts": {
+    "start": "node index.js"
+  },
   "dependencies": {
     "bull": "^4.12.2",
     "express": "^4.19.2",
